@@ -6,14 +6,6 @@
 namespace math
 {
     template<typename T>
-    T* zeros(size_t N)
-    {
-        T* d = new T[N];
-        for (size_t i = 0; i < N; ++i) d[i] = (T)(0);
-        return d;
-    }
-
-    template<typename T>
     class matrix
     {
     protected:
@@ -23,10 +15,13 @@ namespace math
     public:
         // Constructor Routine
         matrix(): data(nullptr), N(0), M(0) {}
-        matrix(const T& d): data(new T[1]), N(1), M(1) {data[0]=d;}
         matrix(size_t N, size_t M): data(new T[N*M]), N(N), M(M) {}
         matrix(size_t N): data(new T[N*N]), N(N), M(N){}
-        matrix(T* data_, size_t N, size_t M): data(data_), N(N), M(M) {}
+        matrix(T* data_, size_t N, size_t M): data(new T[N*M]), N(N), M(M)
+        {
+            for (size_t i = 0; i < N*M; ++i)
+                data[i] = data_[i];
+        }
         size_t height() const {return N;}
         size_t width () const {return M;}
         size_t size  () const {return N*M;}
@@ -89,10 +84,7 @@ namespace math
         }
         
         // Operators Routine
-        /*
-            Сделать все бинарные операторы как +
-        */
-        bool    operator ==(const matrix other)
+        bool    operator ==(const matrix& other)
         {
             if (N != other.N || M != other.M) return false;
             bool f = true;
@@ -100,7 +92,7 @@ namespace math
                 f &= operator()(i,j) == other.operator()(i,j);
             return f;
         }
-        bool    operator !=(const matrix other)
+        bool    operator !=(const matrix& other)
         {
             return !operator==(other);
         }
@@ -125,8 +117,18 @@ namespace math
             assert(M == other.N);
             matrix* mult = new matrix(N, other.M);
             *mult = (T)(0);
-            for(size_t i = 0; i < mult->N; ++i) for(size_t j = 0; j < mult->M; ++j) for(size_t k = 0; k < M; ++k)
-                mult->operator()(i,j) += operator()(i,k)*other.operator()(k,j);
+            for(size_t i = 0; i < mult->N; ++i)
+                for(size_t j = 0; j < mult->M; ++j)
+                    for(size_t k = 0; k < M; ++k)
+                        mult->operator()(i,j) += this->operator()(i,k)*other.operator()(k,j);
+            return *mult;
+        }
+        matrix& operator  *(const T& other)
+        {
+            matrix* mult = new matrix(N, M);
+            for(size_t i = 0; i < mult->N; ++i)
+                for(size_t j = 0; j < mult->M; ++j)
+                    mult->operator()(i,j) = this->operator()(i,j)*other;
             return *mult;
         }
         matrix& operator  /(const T d)
@@ -238,7 +240,7 @@ namespace math
     public:
         T x, y, z;
 
-        private:
+    private:
         void correct_xyz_parameters()
         {
             x = this->operator()(0);
@@ -277,79 +279,100 @@ namespace math
             }
             
         }
-        T  operator()(size_t i) const
-        {
-            assert(i >= 0 && i < 3);
-            return this->operator()(i,0);
-        }
-        T& operator()(size_t i)
+        T  operator()(const size_t i) const
         {
             assert(i >= 0 && i < 3);
             return this->data[i];
         }
-        T  operator[](size_t i) const
+        T& operator()(const size_t i)
         {
             assert(i >= 0 && i < 3);
             return this->data[i];
         }
-        T& operator[](size_t i)
+        T  operator[](const size_t i) const
         {
             assert(i >= 0 && i < 3);
             return this->data[i];
         }
-        void operator +=(spatial_vector other)
+        T& operator[](const size_t i)
+        {
+            assert(i >= 0 && i < 3);
+            return this->data[i];
+        }
+        spatial_vector& operator  +(const spatial_vector& other)
+        {
+            spatial_vector* summ = new spatial_vector;
+            summ->operator()(0) = this->operator()(0) + other.operator()(0);
+            summ->operator()(1) = this->operator()(1) + other.operator()(1);
+            summ->operator()(2) = this->operator()(2) + other.operator()(2);
+            summ->correct_xyz_parameters();
+            return *summ;
+        }
+        spatial_vector& operator  -(const spatial_vector& other)
+        {
+            spatial_vector* summ = new spatial_vector;
+            summ->operator()(0) = this->operator()(0) - other.operator()(0);
+            summ->operator()(1) = this->operator()(1) - other.operator()(1);
+            summ->operator()(2) = this->operator()(2) - other.operator()(2);
+            summ->correct_xyz_parameters();
+            return *summ;
+        }
+        spatial_vector& operator +=(const spatial_vector& other)
         {
             this->operator()(0) += other.operator()(0); 
             this->operator()(1) += other.operator()(1);
             this->operator()(2) += other.operator()(2);
             this->correct_xyz_parameters();
-            return;
+            return *this;
         }
-        void operator -=(spatial_vector other)
+        spatial_vector& operator -=(const spatial_vector& other)
         {
             this->operator()(0) -= other.operator()(0); 
             this->operator()(1) -= other.operator()(1);
             this->operator()(2) -= other.operator()(2);
             correct_xyz_parameters();
-            return;
+            return *this;
         }
-        void operator *=(T d)
+        spatial_vector& operator *=(const T d)
         {
             this->operator()(0) *= d;
             this->operator()(1) *= d;
             this->operator()(2) *= d;
             correct_xyz_parameters();
+            return *this;
         }
-        void operator /=(T d)
+        spatial_vector& operator /=(const T d) 
         {
             this->operator()(0) /= d;
             this->operator()(1) /= d;
             this->operator()(2) /= d;
             correct_xyz_parameters();
+            return *this;
         }
-        T    operator  *(spatial_vector other)
+        T  operator  *(const spatial_vector other)
         {
             return ((matrix(this->data,3,1).transpose()).operator*(other)).conv();
         }
-        T norm()
+        T  norm()
         {
             return sqrt(operator*(*this));
         }
-        spatial_vector operator^(spatial_vector other)
+        spatial_vector& operator ^(const spatial_vector& other)
         {
-            return spatial_vector
-            (
-                this->operator()(1)*other.operator()(2) - this->operator()(2)*other.operator()(1),
-                this->operator()(2)*other.operator()(0) - this->operator()(0)*other.operator()(2),
-                this->operator()(0)*other.operator()(1) - this->operator()(1)*other.operator()(0)
-            );
+            spatial_vector* v = new spatial_vector;
+            v->operator()(0) = y*other.z - z*other.y;
+            v->operator()(1) = z*other.x - x*other.z;
+            v->operator()(2) = x*other.y - y*other.x;
+            v->correct_xyz_parameters();
+            return *v;
         }
-        void operator^=(spatial_vector other)
+        spatial_vector& operator^=(const spatial_vector other)
         {
-            this->operator()(0) = this->operator()(1)*other.operator()(2) - this->operator()(2)*other.operator()(1);
-            this->operator()(1) = this->operator()(2)*other.operator()(0) - this->operator()(0)*other.operator()(2);
-            this->operator()(2) = this->operator()(0)*other.operator()(1) - this->operator()(1)*other.operator()(0);
+            this->operator()(0) = y*other.z - z*other.y;
+            this->operator()(1) = z*other.x - x*other.z;
+            this->operator()(2) = x*other.y - y*other.x;
             correct_xyz_parameters();
+            return *this;
         }
         void print()
         {
