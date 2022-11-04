@@ -5,6 +5,13 @@
 
 namespace math
 {
+    /*template<typename T>
+    class matrix;*/
+
+    template<typename T>
+    class spatial_vector;
+    
+
     template<typename T>
     class matrix
     {
@@ -27,9 +34,8 @@ namespace math
         size_t size  () const {return N*M;}
 
         //RAII
-        matrix(const matrix& lhs): N(lhs.N), M(lhs.M)
+        matrix(const matrix& lhs): data(new T[lhs.N*lhs.M]), N(lhs.N), M(lhs.M)
         {
-            data = new T[N*M];
             for (size_t i = 0; i < N; ++i) for (size_t j = 0; j < M; ++j)
                 data[i * M + j] = lhs.data[i * M + j];
         }
@@ -43,7 +49,7 @@ namespace math
             std::swap(M, t.M);
             return *this;
         }
-        matrix(matrix&& rhs): data(rhs.data), N(N), M(M)
+        matrix(matrix&& rhs): data(rhs.data), N(rhs.N), M(rhs.M)
         {
             rhs.data = nullptr;
             rhs.N = 0;
@@ -208,6 +214,7 @@ namespace math
             }
             return;
         }
+        spatial_vector<T>& operator()(spatial_vector<T>& other);
     };
 
     template<typename T>
@@ -235,7 +242,7 @@ namespace math
 
 
     template<typename T>
-    class spatial_vector: public matrix<T>
+    class spatial_vector: protected matrix<T>
     {
     public:
         T x, y, z;
@@ -252,32 +259,34 @@ namespace math
     public:
         spatial_vector(): matrix<T>(3,1)
         {
-            this->operator()(0) = 0; x = 0;
-            this->operator()(1) = 0; y = 0;
-            this->operator()(2) = 0; z = 0;
+            this->operator()(0) = 0;
+            this->operator()(1) = 0;
+            this->operator()(2) = 0;
+            correct_xyz_parameters();
         }
         spatial_vector(T x_, T y_, T z_): matrix<T>(3,1)
         {
-            this->operator()(0) = x_; x = x_;
-            this->operator()(1) = y_; y = y_;
-            this->operator()(2) = z_; z = z_;
+            this->operator()(0) = x_;
+            this->operator()(1) = y_;
+            this->operator()(2) = z_;
+            correct_xyz_parameters();
         }
         spatial_vector(matrix<T> m): matrix<T>(3,1)
         {
             assert(m.size() == 3);
-            if (m.N == 1)
+            if (m.height() == 1)
             {
-                this->operator()(0,0) = m.operator()(0,0); x = m.operator()(0,0);
-                this->operator()(0,1) = m.operator()(0,1); y = m.operator()(0,1);
-                this->operator()(0,2) = m.operator()(0,2); x = m.operator()(0,2);
+                this->data[0] = m[0][0];
+                this->data[1] = m[0][1];
+                this->data[2] = m[0][2];
             }
-            if (m.M == 1)
+            if (m.width() == 1)
             {
-                this->operator()(0,0) = m.operator()(0,0); x = m.operator()(0,0);
-                this->operator()(1,0) = m.operator()(1,0); y = m.operator()(1,0);
-                this->operator()(2,0) = m.operator()(2,0); x = m.operator()(2,0);
+                this->data[0] = m[0][0];
+                this->data[1] = m[0][1];
+                this->data[2] = m[0][2];
             }
-            
+            correct_xyz_parameters();
         }
         T  operator()(const size_t i) const
         {
@@ -380,10 +389,18 @@ namespace math
                                 this->operator()(1) << ", " <<
                                 this->operator()(2) << ')' << std::endl;
         }
+        friend class matrix<T>;
     };
+
+    template<typename T>
+    spatial_vector<T>& matrix<T>::operator()(spatial_vector<T>& other)
+    {
+        spatial_vector<T>* mult = new spatial_vector<T>;
+        *mult = this->operator*(other);
+        mult->correct_xyz_parameters();
+        return *mult;
+    }
     /*
-        сделать так, чтобы оператор + у векторов возвращал вектора
-    *//*
     class quaternion
     {
         public:
